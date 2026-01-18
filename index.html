@@ -5,29 +5,11 @@
 <title>Clicker Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-  background:#121212;
-  color:white;
-  font-family:Arial;
-  text-align:center;
-}
-input, button {
-  padding:12px;
-  margin:6px;
-  font-size:16px;
-}
-.card {
-  background:#1e1e1e;
-  padding:15px;
-  margin:15px;
-  border-radius:10px;
-}
+body { background:#121212; color:white; font-family:Arial; text-align:center; }
+input, button { padding:12px; margin:6px; font-size:16px; }
+.card { background:#1e1e1e; padding:15px; margin:15px; border-radius:10px; }
 .hidden { display:none; }
-.shop-item {
-  border-top:1px solid #333;
-  padding-top:10px;
-  margin-top:10px;
-}
+.shop-item { border-top:1px solid #333; padding-top:10px; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -54,19 +36,23 @@ input, button {
     <h3>🏪 Магазин</h3>
 
     <div class="shop-item">
-      🔨 Сила клика  
-      (ур. <span id="clickLvl">1</span>)<br>
+      🔨 Сила клика (ур. <span id="clickLvl">1</span>)<br>
       Цена: <span id="clickPrice">50</span><br>
       <button onclick="buyClick()">Купить</button>
     </div>
 
     <div class="shop-item">
-      🤖 Автоклик  
-      (ур. <span id="autoLvl">0</span> / 15)<br>
-      Доход: <span id="autoPower">0</span> / сек<br>
+      🤖 Автоклик (ур. <span id="autoLvl">0</span>/15)<br>
+      Доход: <span id="autoPower">0</span>/сек<br>
       Цена: <span id="autoPrice">100</span><br>
       <button onclick="buyAuto()">Купить</button>
     </div>
+  </div>
+
+  <div class="card">
+    <h3>🎁 Ввести код</h3>
+    <input id="codeInput" placeholder="Введите код"><br>
+    <button onclick="redeemCode()">Активировать</button>
   </div>
 
   <button onclick="logout()">Выйти</button>
@@ -76,40 +62,44 @@ input, button {
 let currentUser = null;
 let autoTimer = null;
 
+// 🎁 НАСТРОЙКА КОДОВ (ТЫ ИХ ОБЪЯВЛЯЕШЬ ИГРОКАМ)
+const REWARD_CODES = {
+  "START-100": 100,
+  "LIT-500": 500,
+  "MEGA-1000": 1000
+};
+
 function getUsers() {
   return JSON.parse(localStorage.getItem("users") || "{}");
 }
-
 function saveUsers(u) {
   localStorage.setItem("users", JSON.stringify(u));
 }
+function getUsedCodes() {
+  return JSON.parse(localStorage.getItem("usedCodes") || "[]");
+}
+function saveUsedCodes(codes) {
+  localStorage.setItem("usedCodes", JSON.stringify(codes));
+}
 
 function register() {
-  const login = document.getElementById("loginInput").value.trim();
-  const pass = document.getElementById("passwordInput").value;
-
+  const login = loginInput.value.trim();
+  const pass = passwordInput.value;
   if (!login || !pass) return alert("Заполни поля");
 
   let users = getUsers();
   if (users[login]) return alert("Пользователь уже существует");
 
-  users[login] = {
-    password: pass,
-    coins: 0,
-    click: 1,
-    clickLvl: 1,
-    autoLvl: 0
-  };
-
+  users[login] = { password: pass, coins: 0, click: 1, clickLvl: 1, autoLvl: 0 };
   saveUsers(users);
   alert("Аккаунт создан");
 }
 
 function loginUser() {
-  const login = document.getElementById("loginInput").value.trim();
-  const pass = document.getElementById("passwordInput").value;
-
+  const login = loginInput.value.trim();
+  const pass = passwordInput.value;
   let users = getUsers();
+
   if (!users[login] || users[login].password !== pass)
     return alert("Неверные данные");
 
@@ -119,71 +109,87 @@ function loginUser() {
 }
 
 function showGame() {
-  document.getElementById("auth").classList.add("hidden");
-  document.getElementById("game").classList.remove("hidden");
+  auth.classList.add("hidden");
+  game.classList.remove("hidden");
   updateUI();
   startAuto();
 }
 
 function updateUI() {
   let u = getUsers()[currentUser];
-
-  document.getElementById("userLabel").innerText = "Игрок: " + currentUser;
-  document.getElementById("coins").innerText = u.coins;
-  document.getElementById("clickPower").innerText = u.click;
-  document.getElementById("clickLvl").innerText = u.clickLvl;
-  document.getElementById("autoLvl").innerText = u.autoLvl;
-  document.getElementById("autoPower").innerText = u.autoLvl * 2;
-  document.getElementById("clickPrice").innerText = 50 * u.clickLvl;
-  document.getElementById("autoPrice").innerText = 100 * (u.autoLvl + 1);
+  userLabel.innerText = "Игрок: " + currentUser;
+  coins.innerText = u.coins;
+  clickPower.innerText = u.click;
+  clickLvl.innerText = u.clickLvl;
+  autoLvl.innerText = u.autoLvl;
+  autoPower.innerText = u.autoLvl * 2;
+  clickPrice.innerText = 50 * u.clickLvl;
+  autoPrice.innerText = 100 * (u.autoLvl + 1);
 }
 
 function clickCoin() {
-  let users = getUsers();
-  users[currentUser].coins += users[currentUser].click;
-  saveUsers(users);
+  let u = getUsers();
+  u[currentUser].coins += u[currentUser].click;
+  saveUsers(u);
   updateUI();
 }
 
 function buyClick() {
-  let users = getUsers();
-  let u = users[currentUser];
-  let price = 50 * u.clickLvl;
+  let u = getUsers();
+  let p = 50 * u[currentUser].clickLvl;
+  if (u[currentUser].coins < p) return alert("Мало монет");
 
-  if (u.coins < price) return alert("Мало монет");
-
-  u.coins -= price;
-  u.clickLvl++;
-  u.click++;
-  saveUsers(users);
+  u[currentUser].coins -= p;
+  u[currentUser].clickLvl++;
+  u[currentUser].click++;
+  saveUsers(u);
   updateUI();
 }
 
 function buyAuto() {
-  let users = getUsers();
-  let u = users[currentUser];
+  let u = getUsers();
+  if (u[currentUser].autoLvl >= 15) return alert("Максимум");
 
-  if (u.autoLvl >= 15) return alert("Максимум");
+  let p = 100 * (u[currentUser].autoLvl + 1);
+  if (u[currentUser].coins < p) return alert("Мало монет");
 
-  let price = 100 * (u.autoLvl + 1);
-  if (u.coins < price) return alert("Мало монет");
-
-  u.coins -= price;
-  u.autoLvl++;
-  saveUsers(users);
+  u[currentUser].coins -= p;
+  u[currentUser].autoLvl++;
+  saveUsers(u);
   updateUI();
   startAuto();
 }
 
 function startAuto() {
   if (autoTimer) clearInterval(autoTimer);
-
   autoTimer = setInterval(() => {
-    let users = getUsers();
-    users[currentUser].coins += users[currentUser].autoLvl * 2;
-    saveUsers(users);
+    let u = getUsers();
+    u[currentUser].coins += u[currentUser].autoLvl * 2;
+    saveUsers(u);
     updateUI();
   }, 1000);
+}
+
+// 🎁 АКТИВАЦИЯ КОДА
+function redeemCode() {
+  const code = codeInput.value.trim().toUpperCase();
+  if (!code) return;
+
+  const used = getUsedCodes();
+  if (used.includes(code)) return alert("Код уже использован");
+
+  if (!REWARD_CODES[code]) return alert("Неверный код");
+
+  let u = getUsers();
+  u[currentUser].coins += REWARD_CODES[code];
+  saveUsers(u);
+
+  used.push(code);
+  saveUsedCodes(used);
+
+  alert("🎉 Получено: +" + REWARD_CODES[code] + " монет");
+  codeInput.value = "";
+  updateUI();
 }
 
 function logout() {
