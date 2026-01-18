@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Clicker Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { background:#121212; color:white; font-family:Arial; text-align:center; }
+button,input { padding:12px; margin:5px; font-size:16px; }
+.card { background:#1e1e1e; padding:15px; margin:15px; border-radius:10px; }
+.hidden { display:none; }
+.shop-item { border-bottom:1px solid #333; padding:10px; }
+</style>
+</head>
+<body>
+
+<h1>🔥 Clicker Game</h1>
+
+<div id="auth" class="card">
+  <input id="login" placeholder="Логин"><br>
+  <input id="password" type="password" placeholder="Пароль"><br>
+  <button onclick="register()">Регистрация</button>
+  <button onclick="loginUser()">Войти</button>
+</div>
+
+<div id="game" class="hidden">
+  <div class="card">
+    <h2 id="userLabel"></h2>
+    <h3>💰 Монеты: <span id="coins">0</span></h3>
+    <button onclick="clickCoin()">Клик (+<span id="clickPower">1</span>)</button>
+  </div>
+
+  <div class="card">
+    <h3>🏪 Магазин</h3>
+    <div class="shop-item">
+      🔨 Сила клика (ур. <span id="clickLvl">1</span>)<br>
+      Цена: <span id="clickPrice">50</span>
+      <br><button onclick="buyClick()">Купить</button>
+    </div>
+
+    <div class="shop-item">
+      🤖 Автоклик (ур. <span id="autoLvl">0</span>/15)<br>
+      Даёт: <span id="autoPower">0</span>/сек<br>
+      Цена: <span id="autoPrice">100</span>
+      <br><button onclick="buyAuto()">Купить</button>
+    </div>
+  </div>
+
+  <button onclick="logout()">Выйти</button>
+</div>
+
+<script>
+let currentUser=null;
+let autoInterval=null;
+
+function users(){ return JSON.parse(localStorage.getItem("users")||"{}"); }
+function save(u){ localStorage.setItem("users",JSON.stringify(u)); }
+
+function register(){
+  const l=login.value,p=password.value;
+  if(!l||!p) return alert("Заполни поля");
+  let u=users();
+  if(u[l]) return alert("Уже существует");
+  u[l]={password:p,coins:0,click:1,clickLvl:1,autoLvl:0};
+  save(u); alert("Создано");
+}
+
+function loginUser(){
+  let u=users();
+  if(!u[login.value]||u[login.value].password!==password.value)
+    return alert("Ошибка");
+  currentUser=login.value;
+  localStorage.setItem("currentUser",currentUser);
+  showGame();
+}
+
+function showGame(){
+  document.getElementById("auth").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  updateUI();
+  startAuto();
+}
+
+function updateUI(){
+  let u=users()[currentUser];
+  userLabel.innerText="Игрок: "+currentUser;
+  coins.innerText=u.coins;
+  clickPower.innerText=u.click;
+  clickLvl.innerText=u.clickLvl;
+  autoLvl.innerText=u.autoLvl;
+  autoPower.innerText=u.autoLvl*2;
+  clickPrice.innerText=50*u.clickLvl;
+  autoPrice.innerText=100*(u.autoLvl+1);
+}
+
+function clickCoin(){
+  let u=users();
+  u[currentUser].coins+=u[currentUser].click;
+  save(u); updateUI();
+}
+
+function buyClick(){
+  let u=users(), p=50*u[currentUser].clickLvl;
+  if(u[currentUser].coins<p) return alert("Мало монет");
+  u[currentUser].coins-=p;
+  u[currentUser].clickLvl++;
+  u[currentUser].click++;
+  save(u); updateUI();
+}
+
+function buyAuto(){
+  let u=users();
+  if(u[currentUser].autoLvl>=15) return alert("Макс уровень");
+  let p=100*(u[currentUser].autoLvl+1);
+  if(u[currentUser].coins<p) return alert("Мало монет");
+  u[currentUser].coins-=p;
+  u[currentUser].autoLvl++;
+  save(u); updateUI(); startAuto();
+}
+
+function startAuto(){
+  if(autoInterval) clearInterval(autoInterval);
+  autoInterval=setInterval(()=>{
+    let u=users();
+    u[currentUser].coins+=u[currentUser].autoLvl*2;
+    save(u); updateUI();
+  },1000);
+}
+
+function logout(){
+  localStorage.removeItem("currentUser");
+  location.reload();
+}
+
+window.onload=()=>{
+  let u=localStorage.getItem("currentUser");
+  if(u){ currentUser=u; showGame(); }
+};
+</script>
+
+</body>
+</html>
